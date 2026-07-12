@@ -1,0 +1,381 @@
+{
+  "info": {
+    "_postman_id": "b1e7a6d0-3c1a-4f5a-9c7a-techassfeedapi",
+    "name": "Tech Ass Feed API",
+    "description": "Laravel + JWT (httpOnly cookie) API for the Tech Ass Feed assignment.\n\nAuth model: /api/login and /api/register set an httpOnly `access_token` cookie on the response. Postman's desktop app keeps its own cookie jar per domain, so once you run Login (or Register) here, every subsequent request to {{base_url}} in this collection will automatically send that cookie — no manual token copying needed. If you ever see 401s, just re-run Login.\n\nRun order for a full pass: Auth > Register (or Login) -> Feed & Posts > Create Post (Text) -> Comments > Create Comment -> Create Reply -> Likes > Toggle Like (Post) -> Toggle Like (Comment).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Lovelace\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"password_confirmation\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "register"]
+            },
+            "description": "Creates a user and sets the httpOnly access_token cookie on success (201). Throttled to 6 requests/min."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 or 422 (already registered)', function () {",
+                  "    pm.expect([201, 422]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "login"]
+            },
+            "description": "Authenticates and sets the httpOnly access_token cookie. Throttled to 6 requests/min."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "me"]
+            },
+            "description": "Returns the currently authenticated user (requires the access_token cookie from Login/Register)."
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["api", "refresh"]
+            },
+            "description": "Rotates the access token cookie. Works even once the token has expired, as long as it's within the refresh TTL (deliberately not gated behind auth:api)."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/logout",
+              "host": ["{{base_url}}"],
+              "path": ["api", "logout"]
+            },
+            "description": "Invalidates the current token and clears the cookie."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feed & Posts",
+      "item": [
+        {
+          "name": "Get Feed",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/feed",
+              "host": ["{{base_url}}"],
+              "path": ["api", "feed"],
+              "query": [{ "key": "cursor", "value": "", "disabled": true }]
+            },
+            "description": "Cursor-paginated feed, newest first. Use the `next_cursor` from the response's `meta` to page forward via the (disabled) `cursor` query param."
+          }
+        },
+        {
+          "name": "Create Post (Text)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Hello from Postman!\",\n  \"visibility\": \"public\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/posts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "posts"]
+            },
+            "description": "visibility must be \"public\" or \"private\". body is required unless an image is attached (see the Image variant)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.environment.set('post_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Post (Image)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "body", "value": "Post with an image", "type": "text" },
+                { "key": "visibility", "value": "public", "type": "text" },
+                { "key": "image", "type": "file", "src": "" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/posts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "posts"]
+            },
+            "description": "Select a file for the `image` field (max 8MB, must be an image MIME type) before sending."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.environment.set('post_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Post",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/posts/{{post_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "posts", "{{post_id}}"]
+            },
+            "description": "Author-only (enforced by PostPolicy)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "List Comments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/posts/{{post_id}}/comments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "posts", "{{post_id}}", "comments"]
+            },
+            "description": "Top-level comments for the post, each with its replies (one level) eager-loaded."
+          }
+        },
+        {
+          "name": "Create Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Nice post!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/posts/{{post_id}}/comments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "posts", "{{post_id}}", "comments"]
+            },
+            "description": "Top-level comment (no parent_id)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.environment.set('comment_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Reply",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Replying to the comment above\",\n  \"parent_id\": {{comment_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/posts/{{post_id}}/comments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "posts", "{{post_id}}", "comments"]
+            },
+            "description": "parent_id must reference an existing TOP-LEVEL comment on this same post (one level of nesting only)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    pm.environment.set('reply_id', pm.response.json().data.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Comment",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/comments/{{comment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "comments", "{{comment_id}}"]
+            },
+            "description": "Author-only. Deleting a top-level comment also deletes its replies (comments_count is decremented accordingly)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Likes",
+      "item": [
+        {
+          "name": "Toggle Like (Post)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"likeable_type\": \"post\",\n  \"likeable_id\": {{post_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/likes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "likes"]
+            },
+            "description": "Toggles like/unlike. Run twice to see it flip liked=true then liked=false. Throttled to 60 requests/min."
+          }
+        },
+        {
+          "name": "Toggle Like (Comment)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"likeable_type\": \"comment\",\n  \"likeable_id\": {{comment_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/likes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "likes"]
+            },
+            "description": "Same toggle endpoint, works for comments and replies via likeable_type=\"comment\"."
+          }
+        },
+        {
+          "name": "List Likers (Post)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/api/likes?likeable_type=post&likeable_id={{post_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "likes"],
+              "query": [
+                { "key": "likeable_type", "value": "post" },
+                { "key": "likeable_id", "value": "{{post_id}}" }
+              ]
+            },
+            "description": "Paginated list of users who liked the given post/comment (the \"who liked this\" UI)."
+          }
+        }
+      ]
+    }
+  ]
+}

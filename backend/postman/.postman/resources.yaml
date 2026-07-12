@@ -1,0 +1,9 @@
+# Use this workspace to collaborate
+workspace:
+  id: 5b43a7b3-f374-4205-90a1-a92201da1879
+
+localResources:
+  collections:
+    - ../Tech-Ass-Feed-API.postman_collection.json
+  environments:
+    - ../Tech-Ass-Feed-API.postman_environment.json
